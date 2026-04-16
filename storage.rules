@@ -1,0 +1,34 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function role() {
+      return request.auth.token.role;
+    }
+
+    function isNurse() {
+      return request.auth != null && role() == 'nurse';
+    }
+
+    function isPharmacy() {
+      return request.auth != null && role() == 'pharmacy';
+    }
+
+    function ownsVisit(visitId) {
+      return firestore.get(/databases/(default)/documents/visits/$(visitId)).data.nurseId == request.auth.uid;
+    }
+
+    match /signatures/{visitId} {
+      allow read: if isPharmacy() || (isNurse() && ownsVisit(visitId.split('\\.')[0]));
+      allow write: if isNurse()
+        && ownsVisit(visitId.split('\\.')[0])
+        && request.resource.size < 1 * 1024 * 1024
+        && request.resource.contentType.matches('image/png');
+    }
+
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

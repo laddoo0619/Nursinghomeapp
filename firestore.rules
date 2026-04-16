@@ -1,0 +1,70 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return request.auth.token.role;
+    }
+
+    function isNurse() {
+      return isSignedIn() && role() == 'nurse';
+    }
+
+    function isPharmacy() {
+      return isSignedIn() && role() == 'pharmacy';
+    }
+
+    // users: role mirrored here is display-only. Claims are source of truth.
+    match /users/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isPharmacy());
+      allow create, update, delete: if false; // written only via Admin SDK / setUserRole callable
+    }
+
+    match /patients/{patientId} {
+      allow read: if isNurse() || isPharmacy();
+      allow create, update, delete: if isPharmacy();
+    }
+
+    match /visits/{visitId} {
+      allow read: if isPharmacy()
+        || (isNurse() && resource.data.nurseId == request.auth.uid);
+
+      allow create, delete: if isPharmacy();
+
+      // Nurses may update only their own visit, and only non-assignment fields.
+      allow update: if isPharmacy()
+        || (
+          isNurse()
+          && resource.data.nurseId == request.auth.uid
+          && request.resource.data.nurseId == resource.data.nurseId
+          && request.resource.data.patientId == resource.data.patientId
+          && request.resource.data.diff(resource.data)
+               .affectedKeys()
+               .hasOnly(['status', 'signatureUrl', 'completedAt', 'notes'])
+        );
+    }
+
+    match /logs/{logId} {
+      allow read: if isPharmacy()
+        || (isNurse() && resource.data.nurseId == request.auth.uid);
+
+      allow create: if isNurse()
+        && request.resource.data.nurseId == request.auth.uid
+        && request.resource.data.type in ['vitals', 'medication', 'concern']
+        && request.resource.data.keys().hasAll(['visitId', 'patientId', 'nurseId', 'type', 'createdAt', 'data']);
+
+      // Pharmacy may acknowledge concerns, etc. Nurses cannot edit once written.
+      allow update: if isPharmacy();
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
