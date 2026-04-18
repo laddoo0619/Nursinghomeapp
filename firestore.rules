@@ -19,30 +19,84 @@ service cloud.firestore {
       return isSignedIn() && role() == 'pharmacy';
     }
 
+    function userPharmacyId() {
+      return request.auth.token.pharmacyId;
+    }
+
+    // True iff the signed-in nurse is affiliated with the given pharmacy.
+    // Reads nurseAffiliations/{uid} which is server-managed via callable.
+    function nurseAffiliated(pid) {
+      return exists(/databases/$(database)/documents/nurseAffiliations/$(request.auth.uid))
+        && pid in get(/databases/$(database)/documents/nurseAffiliations/$(request.auth.uid)).data.pharmacyIds;
+    }
+
     // users: role mirrored here is display-only. Claims are source of truth.
     match /users/{uid} {
-      allow read: if isSignedIn() && (request.auth.uid == uid || isPharmacy());
+      allow read: if isSignedIn() && (
+        request.auth.uid == uid
+        || (isPharmacy() && resource.data.pharmacyId == userPharmacyId())
+      );
       allow create, update, delete: if false; // written only via Admin SDK / setUserRole callable
     }
 
+    // Pharmacy directory. Any signed-in user may read names/addresses; writes only via Admin SDK.
+    match /pharmacies/{pharmacyId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    // Nurse → pharmacies affiliation list. Server-managed via setNurseAffiliations callable.
+    match /nurseAffiliations/{nurseId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == nurseId
+        || isPharmacy()
+      );
+      allow create, update, delete: if false;
+    }
+
     match /patients/{patientId} {
-      allow read: if isNurse() || isPharmacy();
-      allow create, update, delete: if isPharmacy();
+      allow read: if (isPharmacy() && resource.data.pharmacyId == userPharmacyId())
+        || (isNurse() && nurseAffiliated(resource.data.pharmacyId));
+
+      allow create: if isPharmacy()
+        && request.resource.data.pharmacyId == userPharmacyId();
+
+      allow update: if isPharmacy()
+        && resource.data.pharmacyId == userPharmacyId()
+        && request.resource.data.pharmacyId == resource.data.pharmacyId;
+
+      allow delete: if isPharmacy()
+        && resource.data.pharmacyId == userPharmacyId();
     }
 
     match /visits/{visitId} {
-      allow read: if isPharmacy()
-        || (isNurse() && resource.data.nurseId == request.auth.uid);
-
-      allow create, delete: if isPharmacy();
-
-      // Nurses may update only their own visit, and only non-assignment fields.
-      allow update: if isPharmacy()
+      allow read: if (isPharmacy() && resource.data.pharmacyId == userPharmacyId())
         || (
           isNurse()
           && resource.data.nurseId == request.auth.uid
+          && nurseAffiliated(resource.data.pharmacyId)
+        );
+
+      allow create: if isPharmacy()
+        && request.resource.data.pharmacyId == userPharmacyId();
+
+      allow delete: if isPharmacy()
+        && resource.data.pharmacyId == userPharmacyId();
+
+      // Nurses may update only their own visit, and only non-assignment fields.
+      // pharmacyId is immutable on update.
+      allow update: if (
+          isPharmacy()
+          && resource.data.pharmacyId == userPharmacyId()
+          && request.resource.data.pharmacyId == resource.data.pharmacyId
+        )
+        || (
+          isNurse()
+          && resource.data.nurseId == request.auth.uid
+          && nurseAffiliated(resource.data.pharmacyId)
           && request.resource.data.nurseId == resource.data.nurseId
           && request.resource.data.patientId == resource.data.patientId
+          && request.resource.data.pharmacyId == resource.data.pharmacyId
           && request.resource.data.diff(resource.data)
                .affectedKeys()
                .hasOnly(['status', 'signatureUrl', 'completedAt', 'notes'])
@@ -50,16 +104,23 @@ service cloud.firestore {
     }
 
     match /logs/{logId} {
-      allow read: if isPharmacy()
-        || (isNurse() && resource.data.nurseId == request.auth.uid);
+      allow read: if (isPharmacy() && resource.data.pharmacyId == userPharmacyId())
+        || (
+          isNurse()
+          && resource.data.nurseId == request.auth.uid
+          && nurseAffiliated(resource.data.pharmacyId)
+        );
 
       allow create: if isNurse()
         && request.resource.data.nurseId == request.auth.uid
         && request.resource.data.type in ['vitals', 'medication', 'concern']
-        && request.resource.data.keys().hasAll(['visitId', 'patientId', 'nurseId', 'type', 'createdAt', 'data']);
+        && request.resource.data.keys().hasAll(['pharmacyId', 'visitId', 'patientId', 'nurseId', 'type', 'createdAt', 'data'])
+        && nurseAffiliated(request.resource.data.pharmacyId);
 
-      // Pharmacy may acknowledge concerns, etc. Nurses cannot edit once written.
-      allow update: if isPharmacy();
+      // Pharmacy may acknowledge concerns, etc. — but only on logs from their pharmacy.
+      allow update: if isPharmacy()
+        && resource.data.pharmacyId == userPharmacyId()
+        && request.resource.data.pharmacyId == resource.data.pharmacyId;
       allow delete: if false;
     }
 

@@ -6,7 +6,20 @@ export type UserDoc = {
   email: string;
   displayName: string;
   role: Role;
+  pharmacyId?: string;
   createdAt: Timestamp;
+};
+
+export type Pharmacy = {
+  name: string;
+  address: string;
+  createdAt: Timestamp;
+};
+
+export type NurseAffiliation = {
+  nurseId: string;
+  pharmacyIds: string[];
+  updatedAt: Timestamp;
 };
 
 export type Medication = {
@@ -24,6 +37,7 @@ export type MonitoringFlags = {
 };
 
 export type Patient = {
+  pharmacyId: string;
   firstName: string;
   lastName: string;
   dob: string;
@@ -39,6 +53,7 @@ export type Patient = {
 export type VisitStatus = "scheduled" | "in_progress" | "completed" | "missed";
 
 export type Visit = {
+  pharmacyId: string;
   patientId: string;
   nurseId: string;
   scheduledDate: Timestamp;
@@ -77,6 +92,7 @@ export type LogData = VitalsData | MedicationLogData | ConcernData;
 
 export type LogEntry =
   | {
+      pharmacyId: string;
       visitId: string;
       patientId: string;
       nurseId: string;
@@ -85,6 +101,7 @@ export type LogEntry =
       data: VitalsData;
     }
   | {
+      pharmacyId: string;
       visitId: string;
       patientId: string;
       nurseId: string;
@@ -93,6 +110,7 @@ export type LogEntry =
       data: MedicationLogData;
     }
   | {
+      pharmacyId: string;
       visitId: string;
       patientId: string;
       nurseId: string;

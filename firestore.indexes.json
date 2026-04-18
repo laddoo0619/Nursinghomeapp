@@ -4,6 +4,7 @@
       "collectionGroup": "logs",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "pharmacyId", "order": "ASCENDING" },
         { "fieldPath": "patientId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
@@ -12,6 +13,7 @@
       "collectionGroup": "logs",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "pharmacyId", "order": "ASCENDING" },
         { "fieldPath": "patientId", "order": "ASCENDING" },
         { "fieldPath": "type", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
@@ -21,6 +23,7 @@
       "collectionGroup": "logs",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "pharmacyId", "order": "ASCENDING" },
         { "fieldPath": "type", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
@@ -31,6 +34,15 @@
       "fields": [
         { "fieldPath": "nurseId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "visits",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "pharmacyId", "order": "ASCENDING" },
+        { "fieldPath": "nurseId", "order": "ASCENDING" },
+        { "fieldPath": "scheduledDate", "order": "ASCENDING" }
       ]
     },
     {
@@ -45,6 +57,7 @@
       "collectionGroup": "visits",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "pharmacyId", "order": "ASCENDING" },
         { "fieldPath": "patientId", "order": "ASCENDING" },
         { "fieldPath": "scheduledDate", "order": "DESCENDING" }
       ]
@@ -53,6 +66,7 @@
       "collectionGroup": "visits",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "pharmacyId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "scheduledDate", "order": "ASCENDING" }
       ]
@@ -61,6 +75,7 @@
       "collectionGroup": "patients",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "pharmacyId", "order": "ASCENDING" },
         { "fieldPath": "active", "order": "ASCENDING" },
         { "fieldPath": "lastName", "order": "ASCENDING" }
       ]
