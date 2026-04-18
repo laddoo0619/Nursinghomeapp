@@ -15,14 +15,38 @@ service firebase.storage {
       return request.auth != null && role() == 'pharmacy';
     }
 
+    function userPharmacyId() {
+      return request.auth.token.pharmacyId;
+    }
+
+    function visit(visitId) {
+      return firestore.get(/databases/(default)/documents/visits/$(visitId)).data;
+    }
+
     function ownsVisit(visitId) {
-      return firestore.get(/databases/(default)/documents/visits/$(visitId)).data.nurseId == request.auth.uid;
+      return visit(visitId).nurseId == request.auth.uid;
+    }
+
+    function visitInPharmacy(visitId) {
+      return visit(visitId).pharmacyId == userPharmacyId();
+    }
+
+    function nurseAffiliatedWithVisit(visitId) {
+      let v = visit(visitId);
+      return firestore.exists(/databases/(default)/documents/nurseAffiliations/$(request.auth.uid))
+        && v.pharmacyId in firestore.get(/databases/(default)/documents/nurseAffiliations/$(request.auth.uid)).data.pharmacyIds;
     }
 
     match /signatures/{visitId} {
-      allow read: if isPharmacy() || (isNurse() && ownsVisit(visitId.split('\\.')[0]));
+      allow read: if (isPharmacy() && visitInPharmacy(visitId.split('\\.')[0]))
+        || (
+          isNurse()
+          && ownsVisit(visitId.split('\\.')[0])
+          && nurseAffiliatedWithVisit(visitId.split('\\.')[0])
+        );
       allow write: if isNurse()
         && ownsVisit(visitId.split('\\.')[0])
+        && nurseAffiliatedWithVisit(visitId.split('\\.')[0])
         && request.resource.size < 1 * 1024 * 1024
         && request.resource.contentType.matches('image/png');
     }
